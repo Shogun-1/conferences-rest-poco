@@ -1,4 +1,4 @@
-#include "author.h"
+#include "user.h"
 #include "database.h"
 #include "../config/config.h"
 
@@ -19,20 +19,19 @@ using Poco::Data::Statement;
 namespace database
 {
 
-    void Author::init()
+    void User::init()
     {
         try
         {
 
             Poco::Data::Session session = database::Database::get().create_session();
-            //*
             Statement drop_stmt(session);
-            drop_stmt << "DROP TABLE IF EXISTS Author", now;
-            //*/
+            drop_stmt << "DROP TABLE IF EXISTS `User`", now;
 
-            // (re)create table
             Statement create_stmt(session);
-            create_stmt << "CREATE TABLE IF NOT EXISTS `Author` (`id` INT NOT NULL AUTO_INCREMENT,"
+            create_stmt << "CREATE TABLE IF NOT EXISTS `User` (`id` INT NOT NULL AUTO_INCREMENT,"
+                        << "`login` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
+                        << "`password` VARCHAR(32) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
                         << "`first_name` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
                         << "`last_name` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
                         << "`email` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NULL,"
@@ -54,11 +53,13 @@ namespace database
         }
     }
 
-    Poco::JSON::Object::Ptr Author::toJSON() const
+    Poco::JSON::Object::Ptr User::toJSON() const
     {
         Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
 
         root->set("id", _id);
+        root->set("login", _login);
+        root->set("password", _password);
         root->set("first_name", _first_name);
         root->set("last_name", _last_name);
         root->set("email", _email);
@@ -67,31 +68,35 @@ namespace database
         return root;
     }
 
-    Author Author::fromJSON(const std::string &str)
+    User User::fromJSON(const std::string &str)
     {
-        Author author;
+        User User;
         Poco::JSON::Parser parser;
         Poco::Dynamic::Var result = parser.parse(str);
         Poco::JSON::Object::Ptr object = result.extract<Poco::JSON::Object::Ptr>();
 
-        author.id() = object->getValue<long>("id");
-        author.first_name() = object->getValue<std::string>("first_name");
-        author.last_name() = object->getValue<std::string>("last_name");
-        author.email() = object->getValue<std::string>("email");
-        author.title() = object->getValue<std::string>("title");
+        User.id() = object->getValue<long>("id");
+        User.login() = object->getValue<std::string>("login");
+        User.password() = object->getValue<std::string>("password");
+        User.first_name() = object->getValue<std::string>("first_name");
+        User.last_name() = object->getValue<std::string>("last_name");
+        User.email() = object->getValue<std::string>("email");
+        User.title() = object->getValue<std::string>("title");
 
-        return author;
+        return User;
     }
 
-    Author Author::read_by_id(long id)
+    User User::read_by_id(long id)
     {
         try
         {
             Poco::Data::Session session = database::Database::get().create_session();
             Poco::Data::Statement select(session);
-            Author a;
-            select << "SELECT id, first_name, last_name, email, title FROM Author where id=?",
+            User a;
+            select << "SELECT id, login, password, first_name, last_name, email, title FROM User where id=?",
                 into(a._id),
+                into(a._login),
+                into(a._password),
                 into(a._first_name),
                 into(a._last_name),
                 into(a._email),
@@ -119,16 +124,53 @@ namespace database
         }
     }
 
-    std::vector<Author> Author::read_all()
+    User User::read_by_login(std::string login)
+    {
+        try
+        {
+            Poco::Data::Session session = database::Database::get().create_session();
+            Poco::Data::Statement select(session);
+            User a;
+            select << "SELECT first_name, last_name, email, title FROM User where login=?",
+                into(a._first_name),
+                into(a._last_name),
+                into(a._email),
+                into(a._title),
+                use(login),
+                range(0, 1); //  iterate over result set one row at a time
+  
+            select.execute();
+            Poco::Data::RecordSet rs(select);
+            if (!rs.moveFirst()) throw std::logic_error("not found");
+
+            return a;
+        }
+
+        catch (Poco::Data::MySQL::ConnectionException &e)
+        {
+            std::cout << "connection:" << e.what() << std::endl;
+            throw;
+        }
+        catch (Poco::Data::MySQL::StatementException &e)
+        {
+
+            std::cout << "statement:" << e.what() << std::endl;
+            throw;
+        }
+    }
+
+    std::vector<User> User::read_all()
     {
         try
         {
             Poco::Data::Session session = database::Database::get().create_session();
             Statement select(session);
-            std::vector<Author> result;
-            Author a;
-            select << "SELECT id, first_name, last_name, email, title FROM Author",
+            std::vector<User> result;
+            User a;
+            select << "SELECT id, login, password, first_name, last_name, email, title FROM User",
                 into(a._id),
+                into(a._login),
+                into(a._password),
                 into(a._first_name),
                 into(a._last_name),
                 into(a._email),
@@ -156,18 +198,18 @@ namespace database
         }
     }
 
-    std::vector<Author> Author::search(std::string first_name, std::string last_name)
+    std::vector<User> User::search(std::string first_name, std::string last_name)
     {
         try
         {
             Poco::Data::Session session = database::Database::get().create_session();
             Statement select(session);
-            std::vector<Author> result;
-            Author a;
+            std::vector<User> result;
+            User a;
             first_name+="%";
             last_name+="%";
-            select << "SELECT id, first_name, last_name, email, title FROM Author where first_name LIKE ? and last_name LIKE ?",
-                into(a._id),
+            select << "SELECT login, first_name, last_name, email, title FROM User where first_name LIKE ? and last_name LIKE ?",
+                into(a._login),
                 into(a._first_name),
                 into(a._last_name),
                 into(a._email),
@@ -197,7 +239,7 @@ namespace database
     }
 
    
-    void Author::save_to_mysql()
+    void User::save_to_mysql()
     {
 
         try
@@ -205,7 +247,9 @@ namespace database
             Poco::Data::Session session = database::Database::get().create_session();
             Poco::Data::Statement insert(session);
 
-            insert << "INSERT INTO Author (first_name,last_name,email,title) VALUES(?, ?, ?, ?)",
+            insert << "INSERT INTO User (login, password, first_name, last_name, email, title) VALUES(?, ?, ?, ?, ?, ?)",
+                use(_login),
+                use(_password),
                 use(_first_name),
                 use(_last_name),
                 use(_email),
@@ -237,52 +281,72 @@ namespace database
         }
     }
 
-    long Author::get_id() const
+    long User::get_id() const
     {
         return _id;
     }
 
-    const std::string &Author::get_first_name() const
+    const std::string &User::get_login() const
+    {
+        return _login;
+    }
+
+    const std::string &User::get_password() const
+    {
+        return _password;
+    }
+
+    const std::string &User::get_first_name() const
     {
         return _first_name;
     }
 
-    const std::string &Author::get_last_name() const
+    const std::string &User::get_last_name() const
     {
         return _last_name;
     }
 
-    const std::string &Author::get_email() const
+    const std::string &User::get_email() const
     {
         return _email;
     }
 
-    const std::string &Author::get_title() const
+    const std::string &User::get_title() const
     {
         return _title;
     }
 
-    long &Author::id()
+    long &User::id()
     {
         return _id;
     }
 
-    std::string &Author::first_name()
+    std::string &User::login()
+    {
+        return _login;
+    }
+
+    std::string &User::password()
+    {
+        return _password;
+    }
+
+    std::string &User::first_name()
     {
         return _first_name;
     }
 
-    std::string &Author::last_name()
+    std::string &User::last_name()
     {
         return _last_name;
     }
 
-    std::string &Author::email()
+    std::string &User::email()
     {
         return _email;
     }
 
-    std::string &Author::title()
+    std::string &User::title()
     {
         return _title;
     }

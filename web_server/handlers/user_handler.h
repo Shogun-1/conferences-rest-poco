@@ -1,5 +1,5 @@
-#ifndef AUTHORHANDLER_H
-#define AUTHORHANDLER_H
+#ifndef USERHANDLER_H
+#define USERHANDLER_H
 
 #include "Poco/Net/HTTPServer.h"
 #include "Poco/Net/HTTPRequestHandler.h"
@@ -19,7 +19,7 @@
 #include "Poco/Util/Option.h"
 #include "Poco/Util/OptionSet.h"
 #include "Poco/Util/HelpFormatter.h"
-#include <iostream>
+#include "Poco/String.h"
 #include <iostream>
 #include <fstream>
 
@@ -43,16 +43,16 @@ using Poco::Util::OptionCallback;
 using Poco::Util::OptionSet;
 using Poco::Util::ServerApplication;
 
-#include "../../database/author.h"
+#include "../../database/user.h"
 
-class AuthorHandler : public HTTPRequestHandler
+class UserHandler : public HTTPRequestHandler
 {
 private:
     bool check_name(const std::string &name, std::string &reason)
     {
         if (name.length() < 3)
         {
-            reason = "Name must be at leas 3 signs";
+            reason = "Name must be at least 3 signs";
             return false;
         }
 
@@ -95,7 +95,7 @@ private:
     };
 
 public:
-    AuthorHandler(const std::string &format) : _format(format)
+    UserHandler(const std::string &format) : _format(format)
     {
     }
 
@@ -103,18 +103,21 @@ public:
                        HTTPServerResponse &response)
     {
         HTMLForm form(request, request.stream());
-        
-        if (form.has("id"))
+        if (Poco::startsWith(request.getURI(), std::string("/user/get")) && form.has("login"))
         {
-            long id = atol(form.get("id").c_str());
             try
             {
+                std::string login = form.get("login");
                 response.setStatus(Poco::Net::HTTPResponse::HTTP_OK);
                 response.setChunkedTransferEncoding(true);
                 response.setContentType("application/json");
                 std::ostream &ostr = response.send();
-                database::Author result = database::Author::read_by_id(id);
-                Poco::JSON::Stringifier::stringify(result.toJSON(), ostr);
+                database::User result = database::User::read_by_login(login);
+                Poco::JSON::Object::Ptr json = result.toJSON();
+                json->remove("id");
+                json->remove("login");
+                json->remove("password");
+                Poco::JSON::Stringifier::stringify(json, ostr);
                 return;
             }
             catch (...)
@@ -126,19 +129,21 @@ public:
                 return;
             }
         }
-        else if ([](const std::string &str,const std::string & prefix){
-                    return str.size() >= prefix.size() && 0 == str.compare(0, prefix.size(), prefix);}
-                    (request.getURI(),"/search"))
+        else if (Poco::startsWith(request.getURI(), std::string("/user/search")) && form.has("first_name") && form.has("last_name"))
         {
             try
             {
                 
                 std::string fn = form.get("first_name");
                 std::string ln = form.get("last_name");
-                auto results = database::Author::search(fn, ln);
+                auto results = database::User::search(fn, ln);
                 Poco::JSON::Array arr;
-                for (auto s : results)
-                    arr.add(s.toJSON());
+                for (auto s : results) {
+                    Poco::JSON::Object::Ptr json = s.toJSON();
+                    json->remove("id");
+                    json->remove("password");
+                    arr.add(json);
+                }
                 response.setStatus(Poco::Net::HTTPResponse::HTTP_OK);
                 response.setChunkedTransferEncoding(true);
                 response.setContentType("application/json");
@@ -157,72 +162,71 @@ public:
         }
         else if (request.getMethod() == Poco::Net::HTTPRequest::HTTP_POST)
         {
-            if (form.has("first_name"))
-                if (form.has("last_name"))
-                    if (form.has("email"))
-                        if (form.has("title"))
-                        {
-                            database::Author author;
-                            author.first_name() = form.get("first_name");
-                            author.last_name() = form.get("last_name");
-                            author.email() = form.get("email");
-                            author.title() = form.get("title");
+            if (form.has("login") && form.has("password") && form.has("first_name") && form.has("last_name") && form.has("email") and form.has("title"))
+            {
+                database::User User;
+                User.login() = form.get("login");
+                User.password() = form.get("password");
+                User.first_name() = form.get("first_name");
+                User.last_name() = form.get("last_name");
+                User.email() = form.get("email");
+                User.title() = form.get("title");
 
-                            bool check_result = true;
-                            std::string message;
-                            std::string reason;
+                bool check_result = true;
+                std::string message;
+                std::string reason;
 
-                            if (!check_name(author.get_first_name(), reason))
-                            {
-                                check_result = false;
-                                message += reason;
-                                message += "<br>";
-                            }
+                if (!check_name(User.get_first_name(), reason))
+                {
+                    check_result = false;
+                    message += reason;
+                    message += "<br>";
+                }
 
-                            if (!check_name(author.get_last_name(), reason))
-                            {
-                                check_result = false;
-                                message += reason;
-                                message += "<br>";
-                            }
+                if (!check_name(User.get_last_name(), reason))
+                {
+                    check_result = false;
+                    message += reason;
+                    message += "<br>";
+                }
 
-                            if (!check_email(author.get_email(), reason))
-                            {
-                                check_result = false;
-                                message += reason;
-                                message += "<br>";
-                            }
+                if (!check_email(User.get_email(), reason))
+                {
+                    check_result = false;
+                    message += reason;
+                    message += "<br>";
+                }
 
-                            if (check_result)
-                            {
-                                try
-                                {
-                                    author.save_to_mysql();
-                                    response.setStatus(Poco::Net::HTTPResponse::HTTP_OK);
-                                    response.setChunkedTransferEncoding(true);
-                                    response.setContentType("application/json");
-                                    std::ostream &ostr = response.send();
-                                    ostr << author.get_id();
-                                    return;
-                                }
-                                catch (...)
-                                {
-                                    response.setStatus(Poco::Net::HTTPResponse::HTTP_NOT_FOUND);
-                                    std::ostream &ostr = response.send();
-                                    ostr << "database error";
-                                    response.send();
-                                    return;
-                                }
-                            }
-                            else
-                            {
-                                response.setStatus(Poco::Net::HTTPResponse::HTTP_NOT_FOUND);
-                                std::ostream &ostr = response.send();
-                                ostr << message;
-                                response.send();
-                                return;
-                            }
-                        }
+                if (check_result)
+                {
+                    try
+                    {
+                        User.save_to_mysql();
+                        response.setStatus(Poco::Net::HTTPResponse::HTTP_OK);
+                        response.setChunkedTransferEncoding(true);
+                        response.setContentType("application/json");
+                        std::ostream &ostr = response.send();
+                        ostr << User.get_id();
+                        return;
+                    }
+                    catch (...)
+                    {
+                        response.setStatus(Poco::Net::HTTPResponse::HTTP_NOT_FOUND);
+                        std::ostream &ostr = response.send();
+                        ostr << "database error";
+                        response.send();
+                        return;
+                    }
+                }
+                else
+                {
+                    response.setStatus(Poco::Net::HTTPResponse::HTTP_NOT_FOUND);
+                    std::ostream &ostr = response.send();
+                    ostr << message;
+                    response.send();
+                    return;
+                }
+            }
         }
         response.setStatus(Poco::Net::HTTPResponse::HTTP_NOT_FOUND);
         std::ostream &ostr = response.send();
@@ -233,4 +237,4 @@ public:
 private:
     std::string _format;
 };
-#endif // !AUTHORHANDLER_H
+#endif // !UserHandler_H

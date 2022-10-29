@@ -1,5 +1,5 @@
-#ifndef AUTHOR_H
-#define AUTHOR_H
+#ifndef USER_H
+#define USER_H
 
 #include <string>
 #include <vector>
@@ -7,9 +7,11 @@
 
 namespace database
 {
-    class Author{
+    class User{
         private:
             long _id;
+            std::string _login;
+            std::string _password;
             std::string _first_name;
             std::string _last_name;
             std::string _email;
@@ -17,24 +19,29 @@ namespace database
 
         public:
 
-            static Author fromJSON(const std::string & str);
+            static User fromJSON(const std::string & str);
 
             long             get_id() const;
+            const std::string &get_login() const;
+            const std::string &get_password() const;
             const std::string &get_first_name() const;
             const std::string &get_last_name() const;
             const std::string &get_email() const;
             const std::string &get_title() const;
 
             long&        id();
+            std::string &login();
+            std::string &password();
             std::string &first_name();
             std::string &last_name();
             std::string &email();
             std::string &title();
 
             static void init();
-            static Author read_by_id(long id);
-            static std::vector<Author> read_all();
-            static std::vector<Author> search(std::string first_name,std::string last_name);
+            static User read_by_id(long id);
+            static User read_by_login(std::string login);
+            static std::vector<User> read_all();
+            static std::vector<User> search(std::string first_name,std::string last_name);
             void save_to_mysql();
 
             Poco::JSON::Object::Ptr toJSON() const;

@@ -22,3 +22,20 @@ create index fn_ln using btree on Author(first_name,last_name);
 drop index ln_fn on Author;
 create index ln_fn using btree on Author(last_name,first_name);
 explain format=json select * from Author where first_name='Elle%' and last_name='A%';
+
+CREATE TABLE IF NOT EXISTS `User` (`id` INT NOT NULL AUTO_INCREMENT, 
+`login` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL, 
+`password` VARCHAR(32) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
+`first_name` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
+`last_name` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
+`email` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NULL,
+`title` VARCHAR(1024) CHARACTER SET utf8 COLLATE utf8_unicode_ci NULL,
+PRIMARY KEY (`id`), KEY `fn` (`first_name`), KEY `ln` (`last_name`));
+
+CREATE TABLE IF NOT EXISTS `Presentation` (`id` INT NOT NULL AUTO_INCREMENT,
+`title` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
+`theme` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
+`annotation` VARCHAR(5012) CHARACTER SET utf8 COLLATE utf8_unicode_ci NULL,
+`author` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
+`date` DATE NOT NULL,
+PRIMARY KEY (`id`));

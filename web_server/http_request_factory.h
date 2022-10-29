@@ -18,6 +18,7 @@
 #include "Poco/Util/Option.h"
 #include "Poco/Util/OptionSet.h"
 #include "Poco/Util/HelpFormatter.h"
+#include "Poco/String.h"
 #include <iostream>
 
 using Poco::Net::ServerSocket;
@@ -38,14 +39,8 @@ using Poco::Util::OptionSet;
 using Poco::Util::OptionCallback;
 using Poco::Util::HelpFormatter;
 
-#include "handlers/author_handler.h"
-
-
-static bool startsWith(const std::string& str, const std::string& prefix)
-{
-    return str.size() >= prefix.size() && 0 == str.compare(0, prefix.size(), prefix);
-}
-
+#include "handlers/user_handler.h"
+#include "handlers/pres_handler.h"
 
 class HTTPRequestFactory: public HTTPRequestHandlerFactory
 {
@@ -59,9 +54,13 @@ public:
         const HTTPServerRequest& request)
     {
 
-        if (startsWith(request.getURI(),"/author") ||
-            startsWith(request.getURI(),"/search") ) 
-            return new AuthorHandler(_format);
+        if (Poco::startsWith(request.getURI(), std::string("/user")))
+        {
+            return new UserHandler(_format);
+        } else if (Poco::startsWith(request.getURI(), std::string("/pres")))
+        {
+            return new PresHandler(_format);
+        }
         return 0;
     }
 
