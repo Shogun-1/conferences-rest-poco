@@ -1,3 +1,4 @@
+#include "conf.h"
 #include "pres.h"
 #include "database.h"
 #include "../config/config.h"
@@ -19,23 +20,30 @@ using Poco::Data::Statement;
 namespace database
 {
 
-    void Pres::init()
+    void Conf::init()
     {
         try
         {
 
             Poco::Data::Session session = database::Database::get().create_session();
             Statement drop_stmt(session);
-            drop_stmt << "DROP TABLE IF EXISTS `Presentation`", now;
+            drop_stmt << "DROP TABLE IF EXISTS `Conference`", now;
 
             Statement create_stmt(session);
-            create_stmt << "CREATE TABLE IF NOT EXISTS `Presentation` (`id` INT NOT NULL AUTO_INCREMENT,"
+            create_stmt << "CREATE TABLE IF NOT EXISTS `Conference` (`id` INT NOT NULL AUTO_INCREMENT,"
                         << "`title` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
-                        << "`theme` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
-                        << "`annotation` TEXT CHARACTER SET utf8 COLLATE utf8_unicode_ci NULL,"
-                        << "`author` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
-                        << "`date` DATE NOT NULL,"
-                        << "PRIMARY KEY (`id`));",
+                        << "`datetime` TIMESTAMP NOT NULL,"
+                        << "`place` VARCHAR(512) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
+                        << "PRIMARY KEY (`id`), KEY (`title`));",
+                now;
+
+            drop_stmt << "DROP TABLE IF EXISTS `Conf_Pres`", now;
+            create_stmt << "CREATE TABLE IF NOT EXISTS `Conf_Pres` (`id` INT NOT NULL AUTO_INCREMENT,"
+                        << "`conf_id` INT NOT NULL,"
+                        << "`pres_id` INT NOT NULL,"
+                        << "PRIMARY KEY (`id`),"
+                        << "FOREIGN KEY (`conf_id`) REFERENCES `Conference`(`id`) ON UPDATE CASCADE ON DELETE CASCADE,"
+                        << "FOREIGN KEY (`pres_id`) REFERENCES `Presentation`(`id`) ON UPDATE CASCADE ON DELETE CASCADE);",
                 now;
         }
 
@@ -52,51 +60,45 @@ namespace database
         }
     }
 
-    Poco::JSON::Object::Ptr Pres::toJSON() const
+    Poco::JSON::Object::Ptr Conf::toJSON() const
     {
         Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
 
         root->set("id", _id);
         root->set("title", _title);
-        root->set("theme", _theme);
-        root->set("annotation", _annotation);
-        root->set("author", _author);
-        root->set("date", _date);
+        root->set("starttime", _starttime);
+        root->set("place", _place);
 
         return root;
     }
 
-    Pres Pres::fromJSON(const std::string &str)
+    Conf Conf::fromJSON(const std::string &str)
     {
-        Pres pres;
+        Conf conf;
         Poco::JSON::Parser parser;
         Poco::Dynamic::Var result = parser.parse(str);
         Poco::JSON::Object::Ptr object = result.extract<Poco::JSON::Object::Ptr>();
 
-        pres.id() = object->getValue<long>("id");
-        pres.title() = object->getValue<std::string>("title");
-        pres.theme() = object->getValue<std::string>("theme");
-        pres.annotation() = object->getValue<std::string>("annotation");
-        pres.author() = object->getValue<std::string>("author");
-        pres.date() = object->getValue<std::string>("date");
+        conf.id() = object->getValue<long>("id");
+        conf.title() = object->getValue<std::string>("title");
+        conf.starttime() = object->getValue<std::string>("starttime");
+        conf.place() = object->getValue<std::string>("place");
 
-        return pres;
+        return conf;
     }
 
-    Pres Pres::get(std::string title)
+    Conf Conf::get(std::string title)
     {
         try
         {
             Poco::Data::Session session = database::Database::get().create_session();
             Statement select(session);
-            Pres pres;
-            select << "SELECT id, title, theme, annotation, author, CAST(date AS CHAR) FROM Presentation WHERE title=?",
-                into(pres._id),
-                into(pres._title),
-                into(pres._theme),
-                into(pres._annotation),
-                into(pres._author),
-                into(pres._date),
+            Conf conf;
+            select << "SELECT id, title, CAST(starttime AS CHAR), place FROM Conference WHERE title=?",
+                into(conf._id),
+                into(conf._title),
+                into(conf._starttime),
+                into(conf._place),
                 use(title),
                 range(0, 1); //  iterate over result set one row at a time
 
@@ -106,7 +108,7 @@ namespace database
             {
                 throw std::logic_error("not found");
             }
-            return pres;
+            return conf;
         }
 
         catch (Poco::Data::MySQL::ConnectionException &e)
@@ -122,20 +124,63 @@ namespace database
         }
     }
 
-    std::vector<Pres> Pres::get_all()
+    long Conf::add_pres(std::string conf_title, std::string pres_title)
     {
         try
         {
+            Conf conf = Conf::get(conf_title);
+            Pres pres = Pres::get(pres_title);
+
+            Poco::Data::Session session = database::Database::get().create_session();
+            Poco::Data::Statement insert(session);
+
+            insert << "INSERT INTO Conf_Pres (conf_id, pres_id, conf_title, pres_title) VALUES(?, ?, ?, ?)",
+                use(conf.id()),
+                use(pres.id()),
+                use(conf.title()),
+                use(pres.title()),
+
+            insert.execute();
+
+            Poco::Data::Statement select(session);
+            long insert_id = 0;
+            select << "SELECT LAST_INSERT_ID()",
+                into(insert_id),
+                range(0, 1); //  iterate over result set one row at a time
+
+            if (!select.done())
+            {
+                select.execute();
+            }
+            std::cout << "inserted:" << insert_id << std::endl;
+            return insert_id;
+        }
+        catch (Poco::Data::MySQL::ConnectionException &e)
+        {
+            std::cout << "connection:" << e.what() << std::endl;
+            throw;
+        }
+        catch (Poco::Data::MySQL::StatementException &e)
+        {
+
+            std::cout << "statement:" << e.what() << std::endl;
+            throw;
+        }
+    }
+
+    std::vector<Pres> Conf::get_pres_list(std::string conf_title)
+    {
+        try
+        {
+            Conf request_conf = Conf::get(conf_title);
+
             Poco::Data::Session session = database::Database::get().create_session();
             Statement select(session);
             std::vector<Pres> result;
             Pres pres;
-            select << "SELECT title, theme, annotation, author, CAST(date AS CHAR) FROM Presentation",
-                into(pres._title),
-                into(pres._theme),
-                into(pres._annotation),
-                into(pres._author),
-                into(pres._date),
+            select << "SELECT pres_title FROM Conf_Pres WHERE conf_id=?",
+                into(pres.title()),
+                use(request_conf.id()),
                 range(0, 1); //  iterate over result set one row at a time
 
             while (!select.done())
@@ -159,7 +204,7 @@ namespace database
         }
     }
    
-    void Pres::save_to_mysql()
+    void Conf::save_to_mysql()
     {
 
         try
@@ -167,12 +212,10 @@ namespace database
             Poco::Data::Session session = database::Database::get().create_session();
             Poco::Data::Statement insert(session);
 
-            insert << "INSERT INTO Presentation (title, theme, annotation, author, date) VALUES(?, ?, ?, ?, ?)",
+            insert << "INSERT INTO Conference(title, starttime, place) VALUES(?, ?, ?)",
                 use(_title),
-                use(_theme),
-                use(_annotation),
-                use(_author),
-                use(_date),
+                use(_starttime),
+                use(_place),
 
             insert.execute();
 
@@ -200,64 +243,44 @@ namespace database
         }
     }
 
-    long Pres::get_id() const
+    long Conf::get_id() const
     {
         return _id;
     }
 
-    const std::string &Pres::get_title() const
+    const std::string &Conf::get_title() const
     {
         return _title;
     }
 
-    const std::string &Pres::get_theme() const
+    const std::string &Conf::get_starttime() const
     {
-        return _theme;
+        return _starttime;
     }
 
-    const std::string &Pres::get_annotation() const
+    const std::string &Conf::get_place() const
     {
-        return _annotation;
+        return _place;
     }
 
-    const std::string &Pres::get_author() const
-    {
-        return _author;
-    }
-
-    const std::string &Pres::get_date() const
-    {
-        return _date;
-    }
-
-    long &Pres::id()
+    long &Conf::id()
     {
         return _id;
     }
 
-    std::string &Pres::title()
+    std::string &Conf::title()
     {
         return _title;
     }
 
-    std::string &Pres::theme()
+    std::string &Conf::starttime()
     {
-        return _theme;
+        return _starttime;
     }
 
-    std::string &Pres::annotation()
+    std::string &Conf::place()
     {
-        return _annotation;
-    }
-
-    std::string &Pres::author()
-    {
-        return _author;
-    }
-
-    std::string &Pres::date()
-    {
-        return _date;
+        return _place;
     }
 
 }

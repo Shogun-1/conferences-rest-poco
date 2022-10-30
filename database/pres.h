@@ -36,6 +36,7 @@ namespace database
 
             static void init();
             static std::vector<Pres> get_all();
+            static Pres get(std::string title);
             void save_to_mysql();
 
             Poco::JSON::Object::Ptr toJSON() const;

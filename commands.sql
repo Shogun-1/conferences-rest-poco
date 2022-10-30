@@ -1,27 +1,7 @@
-use stud; 
-show tables;
-CREATE TABLE IF NOT EXISTS `Author` (`id` INT NOT NULL AUTO_INCREMENT,`first_name` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,`last_name` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,`email` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NULL,`title` VARCHAR(1024) CHARACTER SET utf8 COLLATE utf8_unicode_ci NULL,PRIMARY KEY (`id`),KEY `fn` (`first_name`),KEY `ln` (`last_name`));
-describe Author;
-select * from Author where id<10;
-select id,first_name,last_name from Author where id>=10 and id<20;
-explain select * from Author where id=10;
-explain select * from Author where first_name='Rhianna';
-explain select * from Author where title='Cashaier';
-explain select * from Author where id>10 and id<20;
-explain select * from Author where first_name='Elle%';
-insert into Author (first_name,last_name,email,title) values ('Иван','Иванов','ivanov@yandex.ru','господин');
-SELECT LAST_INSERT_ID();
-select * from Author where id=LAST_INSERT_ID();
-delete from Author where id= 100001;
-show index from Author;
-drop index email_hash on Author;
-create index email_hash USING HASH  on Author(email);
-explain select * from Author where email='Chad_Cavanagh1998@nickia.com';
-drop index fn_ln on Author;
-create index fn_ln using btree on Author(first_name,last_name);
-drop index ln_fn on Author;
-create index ln_fn using btree on Author(last_name,first_name);
-explain format=json select * from Author where first_name='Elle%' and last_name='A%';
+DROP TABLE IF EXISTS `Conf_Pres`;
+DROP TABLE IF EXISTS `User`;
+DROP TABLE IF EXISTS `Presentation`;
+DROP TABLE IF EXISTS `Conference`;
 
 CREATE TABLE IF NOT EXISTS `User` (`id` INT NOT NULL AUTO_INCREMENT, 
 `login` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL, 
@@ -38,4 +18,41 @@ CREATE TABLE IF NOT EXISTS `Presentation` (`id` INT NOT NULL AUTO_INCREMENT,
 `annotation` VARCHAR(5012) CHARACTER SET utf8 COLLATE utf8_unicode_ci NULL,
 `author` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
 `date` DATE NOT NULL,
-PRIMARY KEY (`id`));
+PRIMARY KEY (`id`), KEY (`title`));
+
+CREATE TABLE IF NOT EXISTS `Conference` (`id` INT NOT NULL AUTO_INCREMENT,
+`title` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
+`starttime` DATETIME NOT NULL,
+`place` VARCHAR(512) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
+PRIMARY KEY (`id`), KEY (`title`));
+
+CREATE TABLE IF NOT EXISTS `Conf_Pres` (`id` INT NOT NULL AUTO_INCREMENT,
+`conf_id` INT NOT NULL,
+`pres_id` INT NOT NULL,
+`conf_title` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
+`pres_title` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
+PRIMARY KEY (`id`),
+FOREIGN KEY (`conf_id`) REFERENCES `Conference`(`id`) ON UPDATE CASCADE ON DELETE CASCADE,
+FOREIGN KEY (`pres_id`) REFERENCES `Presentation`(`id`) ON UPDATE CASCADE ON DELETE CASCADE);
+
+INSERT INTO `User`(`login`, `password`, `first_name`, `last_name`, `email`, `title`) VALUES
+('Jackie', '123456', 'Jack', 'Shepard', 'shepard@gmail.com', 'Doc'),
+('John', '4815162342', 'John', 'Lock', 'lock@gmail.com', 'Hunter'),
+('JustKate', '678173', 'Kate', 'Austin', 'austinkate@gmail.com', 'Ms'),
+('Sawyer', 'aptegjgb', 'James', 'Ford', 'jamesford@gmail.com', 'Mr'),
+('Said', 'easypass', 'Said', 'Jarah', 'jarah@mail.ru', 'Officer');
+
+INSERT INTO `Presentation`(`title`, `theme`, `annotation`, `author`, `date`) VALUES
+('Regularization', 'Machine Learning', 'Benefits of using regularization in ML', 'Andrew Lang', '2022-05-10'),
+('Computer Vision frontiers', 'Computer Vision', 'What does future hold for Computer Vision?', 'Jack Philips', '2022-07-15'),
+('Genome studying problems', 'Bioinformatics', 'How we can overcome difficulties while exploring genomes', 'Paul Ford', '2022-03-20');
+
+INSERT INTO `Conference`(`title`, `starttime`, `place`) VALUES
+('CV2022', '2022-10-10 08:00:00', 'Los Angeles, CA'),
+('ML2022', '2022-11-15 10:00:00', 'Moscow, Russia'),
+('BIOINF2022', '2022-12-20 09:00:00', 'Saint-Petersburg, Russia');
+
+INSERT INTO `Conf_Pres`(`conf_id`, `pres_id`, `conf_title`, `pres_title`) VALUES
+('1', '2', 'CV2022', 'Computer Vision frontiers'),
+('2', '1', 'ML2022', 'Regularization'),
+('3', '3', 'BIOINF2022', 'Genome studying problems');

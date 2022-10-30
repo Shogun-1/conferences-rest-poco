@@ -140,10 +140,10 @@ public:
         }
         else if (request.getMethod() == Poco::Net::HTTPRequest::HTTP_POST)
         {
-            if (form.has("title") && form.has("theme") && form.has("annotation") && form.has("author") && form.has("date"))
+            if (form.has("pres_title") && form.has("theme") && form.has("annotation") && form.has("author") && form.has("date"))
             {
                 database::Pres pres;
-                pres.title() = form.get("title");
+                pres.title() = form.get("pres_title");
                 pres.theme() = form.get("theme");
                 pres.annotation() = form.get("annotation");
                 pres.author() = form.get("author");

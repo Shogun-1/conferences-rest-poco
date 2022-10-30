@@ -41,6 +41,7 @@ using Poco::Util::HelpFormatter;
 
 #include "handlers/user_handler.h"
 #include "handlers/pres_handler.h"
+#include "handlers/conf_handler.h"
 
 class HTTPRequestFactory: public HTTPRequestHandlerFactory
 {
@@ -53,13 +54,15 @@ public:
     HTTPRequestHandler* createRequestHandler(
         const HTTPServerRequest& request)
     {
-
         if (Poco::startsWith(request.getURI(), std::string("/user")))
         {
             return new UserHandler(_format);
         } else if (Poco::startsWith(request.getURI(), std::string("/pres")))
         {
             return new PresHandler(_format);
+        } else if (Poco::startsWith(request.getURI(), std::string("/conf")))
+        {
+            return new ConfHandler(_format);
         }
         return 0;
     }

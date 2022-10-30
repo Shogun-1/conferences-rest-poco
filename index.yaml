@@ -119,7 +119,7 @@ paths:
               schema:
                 type: integer
         404:
-          description: Unexpected error
+          description: Database error
           content:
             application/json:
               schema:
@@ -142,7 +142,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/presentations'
         404:
-          description: Unexpected error
+          description: Not found error
           content:
             application/json:
               schema:
@@ -157,7 +157,7 @@ paths:
     post:
       summary: Add presentation information
       parameters:
-      - name: title
+      - name: pres_title
         description: Название доклада
         in: query
         required: true
@@ -193,6 +193,112 @@ paths:
           content:
             application/json:
               schema:
+                $ref: '#/components/schemas/pres_id'
+        404:
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        500:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /conf/getpres:
+    get:
+      summary: Get all presentations from the specified conference
+      parameters:
+      - name: conf_title
+        description: Название конференции
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/conf_title'
+      responses:
+        200:
+          description: All presentations for the conference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/presentations'
+        404:
+          description: Not found error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        500:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /conf/addconf:
+    post:
+      summary: Add conference information
+      parameters:
+      - name: conf_title
+        description: Название конференции
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: starttime
+        description: Дата и время проведения конференции
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: place
+        description: Место проведения конференции
+        in: query
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: Идентификатор добавленной конференции
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/conf_id'
+        404:
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        500:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /conf/addpres:
+    post:
+      summary: Add a presentation to the conference
+      parameters:
+      - name: conf_title
+        description: Название конференции
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/conf_title'
+      - name: pres_title
+        description: Название доклада
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/pres_title'
+      responses:
+        200:
+          description: Идентификатор связывания конференции и доклада
+          content:
+            application/json:
+              schema:
                 type: integer
         404:
           description: Database error
@@ -209,7 +315,6 @@ paths:
 
 components:
   schemas:
-
     user_id:
       description: Уникальный идентификатор пользователя
       type: integer
@@ -228,8 +333,6 @@ components:
         - password
         - first_name
         - last_name
-        - email
-        - title
       properties:
         user_id:
           $ref: '#/components/schemas/user_id'
@@ -249,6 +352,9 @@ components:
     pres_id:
       description: Уникальный идентификатор доклада
       type: integer
+    pres_title:
+      description: Название доклада
+      type: string
     presentations:
       type: array
       items:
@@ -257,16 +363,15 @@ components:
       type: object
       required:
         - pres_id
-        - title
+        - pres_title
         - theme
-        - annotation
         - author
         - date
       properties:
         pres_id:
           $ref: '#/components/schemas/pres_id'
-        title:
-          type: string
+        pres_title:
+          $ref: '#/components/schemas/pres_title'
         theme:
           type: string
         annotation:
@@ -276,6 +381,29 @@ components:
         date:
           type: string
 
+    conf_id:
+      description: Уникальный идентификатор конференции
+      type: integer
+    conf_title:
+      description: Название конференции
+      type: string
+    conference:
+      type: object
+      required:
+        - conf_id
+        - conf_title
+        - starttime
+        - place
+      properties:
+        conf_id:
+          $ref: '#/components/schemas/conf_id'
+        conf_title:
+          $ref: '#/components/schemas/conf_title'
+        starttime:
+          type: string
+        place:
+          type: string
+
     Error:
       type: object
       required:
@@ -283,4 +411,13 @@ components:
       properties:
         message:
           description: Произошла ошибка при выполнении запроса. Измените запрос или повторите позже.
+          type: string
+
+    Success:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          description: Запрос успешно выполнен.
           type: string
