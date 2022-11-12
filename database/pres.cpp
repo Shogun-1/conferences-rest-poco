@@ -32,10 +32,10 @@ namespace database
             create_stmt << "CREATE TABLE IF NOT EXISTS `Presentation` (`id` INT NOT NULL AUTO_INCREMENT,"
                         << "`title` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
                         << "`theme` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
-                        << "`annotation` TEXT CHARACTER SET utf8 COLLATE utf8_unicode_ci NULL,"
+                        << "`annotation` VARCHAR(5012) CHARACTER SET utf8 COLLATE utf8_unicode_ci NULL,"
                         << "`author` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
                         << "`date` DATE NOT NULL,"
-                        << "PRIMARY KEY (`id`));",
+                        << "PRIMARY KEY (`id`), KEY (`title`));",
                 now;
         }
 

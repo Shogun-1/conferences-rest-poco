@@ -115,6 +115,8 @@ protected:
     {
         std::cout << "init db" << std::endl;
         database::User::init();
+        database::Pres::init();
+        database::Conf::init();
     }
     void handleLogin([[maybe_unused]] const std::string &name,
                      [[maybe_unused]] const std::string &value)

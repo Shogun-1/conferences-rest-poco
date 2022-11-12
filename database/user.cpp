@@ -11,6 +11,7 @@
 
 #include <sstream>
 #include <exception>
+#include <future>
 
 using namespace Poco::Data::Keywords;
 using Poco::Data::Session;
@@ -25,19 +26,26 @@ namespace database
         {
 
             Poco::Data::Session session = database::Database::get().create_session();
-            Statement drop_stmt(session);
-            drop_stmt << "DROP TABLE IF EXISTS `User`", now;
 
-            Statement create_stmt(session);
-            create_stmt << "CREATE TABLE IF NOT EXISTS `User` (`id` INT NOT NULL AUTO_INCREMENT,"
-                        << "`login` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
-                        << "`password` VARCHAR(32) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
-                        << "`first_name` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
-                        << "`last_name` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
-                        << "`email` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NULL,"
-                        << "`title` VARCHAR(1024) CHARACTER SET utf8 COLLATE utf8_unicode_ci NULL,"
-                        << "PRIMARY KEY (`id`),KEY `fn` (`first_name`),KEY `ln` (`last_name`));",
-                now;
+            for (auto& hint : database::Database::get_all_hints())
+            {
+                Statement drop_stmt(session);
+                drop_stmt << "DROP TABLE IF EXISTS `User`"
+                          << hint,
+                    now;
+
+                Statement create_stmt(session);
+                create_stmt << "CREATE TABLE IF NOT EXISTS `User` (`id` INT NOT NULL AUTO_INCREMENT,"
+                            << "`login` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
+                            << "`password` VARCHAR(32) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
+                            << "`first_name` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
+                            << "`last_name` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
+                            << "`email` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NULL,"
+                            << "`title` VARCHAR(1024) CHARACTER SET utf8 COLLATE utf8_unicode_ci NULL,"
+                            << "PRIMARY KEY (`id`), KEY `fn` (`first_name`), KEY `ln` (`last_name`))"
+                            << hint,
+                    now;
+            }
         }
 
         catch (Poco::Data::MySQL::ConnectionException &e)
@@ -131,7 +139,14 @@ namespace database
             Poco::Data::Session session = database::Database::get().create_session();
             Poco::Data::Statement select(session);
             User a;
-            select << "SELECT first_name, last_name, email, title FROM User where login=?",
+
+            std::string shard = database::Database::sharding_hint(login);
+
+            std::string select_op = "SELECT first_name, last_name, email, title FROM User where login=? ";
+            select_op += shard;
+            std::cout << select_op << std::endl;
+
+            select << select_op,
                 into(a._first_name),
                 into(a._last_name),
                 into(a._email),
@@ -202,26 +217,63 @@ namespace database
     {
         try
         {
-            Poco::Data::Session session = database::Database::get().create_session();
-            Statement select(session);
-            std::vector<User> result;
-            User a;
-            first_name+="%";
-            last_name+="%";
-            select << "SELECT login, first_name, last_name, email, title FROM User where first_name LIKE ? and last_name LIKE ?",
-                into(a._login),
-                into(a._first_name),
-                into(a._last_name),
-                into(a._email),
-                into(a._title),
-                use(first_name),
-                use(last_name),
-                range(0, 1); //  iterate over result set one row at a time
+            first_name = "\"" + first_name + "%\"";
+            last_name = "\"" + last_name + "%\"";
 
-            while (!select.done())
+            std::vector<User> result;
+            std::vector<std::string> shards = database::Database::get_all_hints();
+            std::vector<std::future<std::vector<User>>> futures;
+
+            for (const std::string &shard : shards)
             {
-                if(select.execute())  result.push_back(a);
+                auto handle = std::async(std::launch::async, [first_name, last_name, shard]() -> std::vector<User>
+                {
+                    std::vector<User> result;
+
+                    Poco::Data::Session session = database::Database::get().create_session();
+                    Statement select(session);
+
+                    std::string select_op = "SELECT login, first_name, last_name, email, title FROM User where first_name LIKE ";
+                    select_op += first_name;
+                    select_op += " AND last_name LIKE ";
+                    select_op += last_name;
+                    select_op += " ";
+                    select_op += shard;
+
+                    select << select_op,
+                    select.execute();
+                    Poco::Data::RecordSet record_set(select);
+
+                    bool more = record_set.moveFirst();
+                    while (more)
+                    {
+                        User user;
+
+                        user._login = record_set[0].convert<std::string>();
+                        user._first_name = record_set[1].convert<std::string>();
+                        user._last_name = record_set[2].convert<std::string>();
+                        user._email = record_set[3].convert<std::string>();
+                        user._title = record_set[4].convert<std::string>();
+
+                        result.push_back(user);
+
+                        more = record_set.moveNext();
+                    }
+
+                    std::cout << select_op << std::endl;
+                    
+                    return result; 
+                });
+
+                futures.emplace_back(std::move(handle));
             }
+
+            for (std::future<std::vector<User>> &res : futures)
+            {
+                std::vector<User> v = res.get();
+                std::copy(std::begin(v), std::end(v), std::back_inserter(result));
+            }
+
             return result;
         }
 
@@ -247,7 +299,13 @@ namespace database
             Poco::Data::Session session = database::Database::get().create_session();
             Poco::Data::Statement insert(session);
 
-            insert << "INSERT INTO User (login, password, first_name, last_name, email, title) VALUES(?, ?, ?, ?, ?, ?)",
+            std::string shard = database::Database::sharding_hint(_login);
+
+            std::string insert_op = "INSERT INTO User (login, password, first_name, last_name, email, title) VALUES(?, ?, ?, ?, ?, ?) ";
+            insert_op += shard;
+            std::cout << insert_op << std::endl;
+
+            insert << insert_op,
                 use(_login),
                 use(_password),
                 use(_first_name),

@@ -14,3 +14,8 @@ Don't forget to update the database name in the script if it's needed (by defaul
 
 ## OpenAPI specification
 You can check OpenAPI specification in [index.yaml](index.yaml) file. 
+
+# Sharding functionality
+1. Use `docker-compose up --build` to run two MySQL database containers and one ProxySQL container.
+2. Run `./start.sh` to start the web-server.
+3. Feel free to use [index.yaml](index.yaml) to test requests. User entries should be equally split between two database nodes based on the user login`s hash key.

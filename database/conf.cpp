@@ -32,15 +32,20 @@ namespace database
             Statement create_stmt(session);
             create_stmt << "CREATE TABLE IF NOT EXISTS `Conference` (`id` INT NOT NULL AUTO_INCREMENT,"
                         << "`title` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
-                        << "`datetime` TIMESTAMP NOT NULL,"
+                        << "`starttime` DATETIME NOT NULL,"
                         << "`place` VARCHAR(512) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
                         << "PRIMARY KEY (`id`), KEY (`title`));",
                 now;
 
-            drop_stmt << "DROP TABLE IF EXISTS `Conf_Pres`", now;
-            create_stmt << "CREATE TABLE IF NOT EXISTS `Conf_Pres` (`id` INT NOT NULL AUTO_INCREMENT,"
+            Statement drop_stmt2(session);
+            drop_stmt2 << "DROP TABLE IF EXISTS `Conf_Pres`", now;
+
+            Statement create_stmt2(session);
+            create_stmt2 << "CREATE TABLE IF NOT EXISTS `Conf_Pres` (`id` INT NOT NULL AUTO_INCREMENT,"
                         << "`conf_id` INT NOT NULL,"
                         << "`pres_id` INT NOT NULL,"
+                        << "`conf_title` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
+                        << "`pres_title` VARCHAR(256) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,"
                         << "PRIMARY KEY (`id`),"
                         << "FOREIGN KEY (`conf_id`) REFERENCES `Conference`(`id`) ON UPDATE CASCADE ON DELETE CASCADE,"
                         << "FOREIGN KEY (`pres_id`) REFERENCES `Presentation`(`id`) ON UPDATE CASCADE ON DELETE CASCADE);",
