@@ -1,5 +1,6 @@
 #include "user.h"
 #include "database.h"
+#include "cache.h"
 #include "../config/config.h"
 
 #include <Poco/Data/MySQL/Connector.h>
@@ -139,14 +140,16 @@ namespace database
             Poco::Data::Session session = database::Database::get().create_session();
             Poco::Data::Statement select(session);
             User a;
+            a._login = login;
 
             std::string shard = database::Database::sharding_hint(login);
 
-            std::string select_op = "SELECT first_name, last_name, email, title FROM User where login=? ";
+            std::string select_op = "SELECT password, first_name, last_name, email, title FROM User where login=? ";
             select_op += shard;
             std::cout << select_op << std::endl;
 
             select << select_op,
+                into(a._password),
                 into(a._first_name),
                 into(a._last_name),
                 into(a._email),
@@ -170,6 +173,22 @@ namespace database
         {
 
             std::cout << "statement:" << e.what() << std::endl;
+            throw;
+        }
+    }
+
+    std::optional<User> User::read_from_cache_by_login(std::string login) {
+        try
+        {
+            std::string result;
+            if (database::Cache::get().get(login, result))
+                return fromJSON(result);
+            else
+                return std::optional<User>();
+        }
+        catch (std::exception* err)
+        {
+            std::cerr << "error:" << err->what() << std::endl;
             throw;
         }
     }
@@ -337,6 +356,13 @@ namespace database
             std::cout << "statement:" << e.what() << std::endl;
             throw;
         }
+    }
+
+    void User::save_to_cache() {
+        std::stringstream ss;
+        Poco::JSON::Stringifier::stringify(toJSON(), ss);
+        std::string message = ss.str();
+        database::Cache::get().put(_login, message);
     }
 
     long User::get_id() const

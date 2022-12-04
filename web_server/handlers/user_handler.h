@@ -108,11 +108,45 @@ public:
             try
             {
                 std::string login = form.get("login");
+                bool use_cache = true;
+                if (form.has("no_cache")) {
+                    if (form.get("no_cache") == "true") {
+                        use_cache = false;
+                    }
+                }
+
                 response.setStatus(Poco::Net::HTTPResponse::HTTP_OK);
                 response.setChunkedTransferEncoding(true);
                 response.setContentType("application/json");
                 std::ostream &ostr = response.send();
+
+                if (use_cache) 
+                {
+                    try
+                    {
+                        std::optional<database::User> result = database::User::read_from_cache_by_login(login);
+                        if (result) {
+                            Poco::JSON::Object::Ptr json = result->toJSON();
+                            json->remove("id");
+                            json->remove("login");
+                            json->remove("password");
+                            Poco::JSON::Stringifier::stringify(json, ostr);
+                            std::cout << "Cache used to fetch data for user " << login << std::endl;
+                            return;
+                        }
+                    }
+                    catch (...)
+                    {
+                        std::cout << "Cache missed to fetch data for user " << login << std::endl;
+                    }
+                }
+
                 database::User result = database::User::read_by_login(login);
+                // Saving the user entry to cache in case of a cache miss (if cache is enabled)
+                if (use_cache) {
+                    result.save_to_cache();
+                    std::cout << "Added the entry to cache for user " << login << std::endl;
+                }
                 Poco::JSON::Object::Ptr json = result.toJSON();
                 json->remove("id");
                 json->remove("login");
@@ -164,6 +198,13 @@ public:
         {
             if (form.has("login") && form.has("password") && form.has("first_name") && form.has("last_name") && form.has("email") and form.has("title"))
             {
+                bool use_cache = true;
+                if (form.has("no_cache")) {
+                    if (form.get("no_cache") == "true") {
+                        use_cache = false;
+                    }
+                }
+
                 database::User User;
                 User.login() = form.get("login");
                 User.password() = form.get("password");
@@ -201,7 +242,14 @@ public:
                 {
                     try
                     {
+                        // Saving data both to the database and cache (if cache is enabled)
                         User.save_to_mysql();
+                        if (use_cache) {
+                            User.save_to_cache();
+                            std::cout << "Saved user " + User.login() + " both to the database and redis cache." << std::endl;
+                        } else {
+                            std::cout << "Saved user " + User.login() + " to the database only." << std::endl;
+                        }
                         response.setStatus(Poco::Net::HTTPResponse::HTTP_OK);
                         response.setChunkedTransferEncoding(true);
                         response.setContentType("application/json");

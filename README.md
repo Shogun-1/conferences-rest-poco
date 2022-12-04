@@ -19,3 +19,10 @@ You can check OpenAPI specification in [index.yaml](index.yaml) file.
 1. Use `docker-compose up --build` to run two MySQL database containers and one ProxySQL container.
 2. Run `./start.sh` to start the web-server.
 3. Feel free to use [index.yaml](index.yaml) to test requests. User entries should be equally split between two database nodes based on the user login`s hash key.
+
+# Caching
+As of 04/12/2022 caching is supported. All `User` entries will be cached now by default for increased performance. Redis is used for caching.  
+1. You can set `no_cache` parameter in a POST query to `true` in order not to use caching for some particular entry while saving it to the database.
+2. You can set `no_cache` parameter in a GET query to `true` in order not to cache the entry (if it hasn't already been cached) while fetching it from the database. Cache won't be used at all, the entry will be fetched directly from the database. Supported only in the search queries when the user's login is given.  
+3. It is recommended to set `no_cache` parameter to `false` everytime by default to use caching.  
+---  

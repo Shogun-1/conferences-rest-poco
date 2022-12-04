@@ -52,6 +52,12 @@ paths:
         required: true
         schema:
           $ref: '#/components/schemas/login'
+      - name: no_cache
+        description: Не сохранять запись в кэш при её отсутствии в кэше
+        in: query
+        required: false
+        schema:
+          type: boolean
       responses:
         200:
           description: The user corresponding to the provided `login`
@@ -111,6 +117,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: no_cache
+        description: Не сохранять запись в кэш
+        in: query
+        required: false
+        schema:
+          type: boolean
       responses:
         200:
           description: Идентификатор, добавленного пользователя
