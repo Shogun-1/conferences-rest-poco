@@ -242,19 +242,17 @@ public:
                 {
                     try
                     {
-                        // Saving data both to the database and cache (if cache is enabled)
-                        User.save_to_mysql();
-                        if (use_cache) {
-                            User.save_to_cache();
-                            std::cout << "Saved user " + User.login() + " both to the database and redis cache." << std::endl;
-                        } else {
-                            std::cout << "Saved user " + User.login() + " to the database only." << std::endl;
-                        }
+                        // Sending data to the kafka broker
+                        static int i = 0;
+                        User.send_to_queue(use_cache);
+
                         response.setStatus(Poco::Net::HTTPResponse::HTTP_OK);
                         response.setChunkedTransferEncoding(true);
-                        response.setContentType("application/json");
+                        response.setContentType("text/plain");
                         std::ostream &ostr = response.send();
-                        ostr << User.get_id();
+                        ostr << "{ \"result\": true }";
+
+                        std::cout << "sent to the kafka queue: " << std::to_string(++i)  << std::endl;
                         return;
                     }
                     catch (...)

@@ -45,6 +45,7 @@ namespace database
             static std::vector<User> search(std::string first_name,std::string last_name);
             void save_to_mysql();
             void save_to_cache();
+            void send_to_queue(bool use_cache);
 
             Poco::JSON::Object::Ptr toJSON() const;
 

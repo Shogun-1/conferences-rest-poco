@@ -9,10 +9,12 @@
 #include <Poco/Data/RecordSet.h>
 #include <Poco/JSON/Parser.h>
 #include <Poco/Dynamic/Var.h>
+#include <cppkafka/cppkafka.h>
 
 #include <sstream>
 #include <exception>
 #include <future>
+#include <mutex>
 
 using namespace Poco::Data::Keywords;
 using Poco::Data::Session;
@@ -309,7 +311,41 @@ namespace database
         }
     }
 
-   
+    void User::send_to_queue(bool use_cache)
+    {
+        static cppkafka::Configuration config ={
+            {"metadata.broker.list", Config::get().get_queue_host()},
+            {"acks","all"}};
+        static cppkafka::Producer producer(config);
+        static std::mutex mtx;
+        static int message_key{0};
+        using Hdr = cppkafka::MessageBuilder::HeaderType;
+        
+        std::lock_guard<std::mutex> lock(mtx);
+        std::stringstream ss;
+        Poco::JSON::Stringifier::stringify(toJSON(), ss);
+        std::string message = ss.str();
+        bool not_sent = true;
+
+        cppkafka::MessageBuilder builder(Config::get().get_queue_topic());
+        std::string mk = std::to_string(++message_key);
+        std::string use_cache_str = use_cache ? "true" : "false";
+
+        builder.key(mk);
+        builder.header(Hdr{"use_cache", use_cache_str});
+        builder.payload(message);
+
+        while (not_sent)
+        {
+            try
+            {
+                producer.produce(builder);
+                not_sent = false;
+            }
+            catch (...) {}
+        }
+    }
+
     void User::save_to_mysql()
     {
 

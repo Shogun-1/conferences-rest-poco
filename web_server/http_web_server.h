@@ -113,6 +113,18 @@ protected:
                 .repeatable(false)
                 .argument("value")
                 .callback(OptionCallback<HTTPWebServer>(this, &HTTPWebServer::handleCacheServers)));
+        options.addOption(
+            Option("queue", "q", "set queue host")
+                .required(false)
+                .repeatable(false)
+                .argument("value")
+                .callback(OptionCallback<HTTPWebServer>(this, &HTTPWebServer::handleQueueHost)));
+        options.addOption(
+            Option("topic", "t", "set queue topic")
+                .required(false)
+                .repeatable(false)
+                .argument("value")
+                .callback(OptionCallback<HTTPWebServer>(this, &HTTPWebServer::handleQueueTopic)));
         
     }
 
@@ -164,6 +176,19 @@ protected:
         Config::get().cache_servers() = value;
     }
 
+    void handleQueueHost([[maybe_unused]] const std::string &name,
+                         [[maybe_unused]] const std::string &value)
+    {
+        std::cout << "queue host:" << value << std::endl;
+        Config::get().queue_host() = value;
+    }
+
+    void handleQueueTopic([[maybe_unused]] const std::string &name,
+                          [[maybe_unused]] const std::string &value)
+    {
+        std::cout << "queue topic:" << value << std::endl;
+        Config::get().queue_topic() = value;
+    }
 
     void handleHelp([[maybe_unused]] const std::string &name,
                     [[maybe_unused]] const std::string &value)

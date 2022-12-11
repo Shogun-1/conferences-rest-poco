@@ -1,0 +1,1 @@
+sudo ./build/writer --host=127.0.0.1 --port=6033 --login=aleksandr --password=alekspass --database=confdb --queue=127.0.0.1:9092 --topic=user_entries --group_id=0 --cache_servers=127.0.0.1:6379
